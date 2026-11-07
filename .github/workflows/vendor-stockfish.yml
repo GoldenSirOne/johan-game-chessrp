@@ -1,0 +1,45 @@
+name: Vendor Stockfish WASM
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'stockfish-worker.js'
+      - '.github/workflows/vendor-stockfish.yml'
+permissions:
+  contents: write
+jobs:
+  vendor-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out game
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download official Stockfish 19 single-threaded lite engine
+        run: |
+          set -euo pipefail
+          mkdir -p vendor/stockfish
+          curl --fail --location --retry 3 --output vendor/stockfish/stockfish-19-lite-single.js https://github.com/nmrugg/stockfish.js/releases/download/v19.0.0/stockfish-19-lite-single.js
+          curl --fail --location --retry 3 --output vendor/stockfish/stockfish-19-lite-single.wasm https://github.com/nmrugg/stockfish.js/releases/download/v19.0.0/stockfish-19-lite-single.wasm
+          echo "d3344124ab067fb0b90ee77873bb8e9fbf5fc01bc525fe714b0f942581e889e6  vendor/stockfish/stockfish-19-lite-single.js" | sha256sum --check
+          echo "57ac2d72312aba346760e3f173f687a8c211208e97a87268436f7f0e10bb5387  vendor/stockfish/stockfish-19-lite-single.wasm" | sha256sum --check
+          cat > vendor/stockfish/README.txt <<'EOF'
+          Stockfish.js 19.0.0 — lite, single-threaded WebAssembly build.
+          Original, unmodified upstream release assets.
+          Source: https://github.com/nmrugg/stockfish.js/releases/tag/v19.0.0
+          License: GNU General Public License v3.0 (GPL-3.0).
+          The upstream source and license are available in the linked repository.
+          EOF
+      - name: Commit vendored engine files
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor/stockfish
+          if git diff --cached --quiet; then
+            echo "Stockfish assets are already up to date."
+          else
+            git commit -m "Vendor Stockfish 19 WASM assets"
+            git push origin HEAD:main
+          fi
